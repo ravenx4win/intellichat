@@ -1,15 +1,17 @@
 # 🤖 Intellichat - Document Q&A Assistant
 
-Intellichat is an intelligent document Q&A assistant that allows you to upload PDF documents and ask questions about them using natural language. Powered by Hugging Face models and LangChain, it provides accurate, context-aware answers based on your documents.
+Intellichat is an intelligent document Q&A assistant that allows you to upload PDF documents and ask questions about them using natural language. Powered by Microsoft DialoGPT-large and intelligent text matching, it provides accurate, context-aware answers based on your documents with optional web search integration.
 
 ## ✨ Features
 
 - 📄 **PDF Document Processing**: Upload and process PDF documents with advanced text extraction
-- 🧠 **AI-Powered Q&A**: Ask questions in natural language and get intelligent answers
+- 🧠 **AI-Powered Q&A**: Ask questions in natural language and get intelligent answers using Microsoft DialoGPT-large
 - 💭 **Conversational Memory**: Maintains context across multiple questions in a conversation
-- 🔍 **Semantic Search**: Uses vector embeddings for accurate document retrieval
+- 🔍 **Intelligent Text Search**: Uses smart keyword matching for accurate document retrieval
+- 🌐 **Web Search Integration**: Optional web search for enhanced responses
 - 🎨 **Beautiful UI**: Modern, responsive interface built with Streamlit
 - ⚡ **Real-time Processing**: Fast document processing and instant responses
+- 🛡️ **Reliable Operation**: No API failures or rate limits
 
 ## 🚀 Quick Start
 
@@ -67,25 +69,25 @@ Intellichat is an intelligent document Q&A assistant that allows you to upload P
 - **Frontend**: Streamlit web interface
 - **Document Processing**: PyPDF2 and pdfplumber for text extraction
 - **Text Chunking**: RecursiveCharacterTextSplitter for optimal chunk sizes
-- **Embeddings**: OpenAI embeddings for semantic understanding
-- **Vector Database**: ChromaDB for efficient similarity search
-- **LLM**: OpenAI GPT-3.5-turbo for generating responses
-- **Memory**: ConversationBufferMemory for maintaining context
+- **AI Model**: Microsoft DialoGPT-large for intelligent responses
+- **Text Search**: Smart keyword matching for document retrieval
+- **Web Integration**: DuckDuckGo API for enhanced responses
+- **Memory**: Simple document store for reliable operation
 
 ### Workflow
 
 1. **Document Upload** → PDF text extraction
-2. **Text Processing** → Chunking and embedding creation
-3. **Vector Storage** → ChromaDB vector database
-4. **Query Processing** → Semantic search + LLM generation
+2. **Text Processing** → Chunking and document store creation
+3. **Query Processing** → Intelligent text search + AI model generation
+4. **Web Enhancement** → Optional web search for additional context
 5. **Response Delivery** → Contextual answers with conversation memory
 
 ## 🔧 Configuration
 
 ### Environment Variables
 
-- `OPENAI_API_KEY`: Your OpenAI API key (required)
-- `OPENAI_ORG_ID`: Your OpenAI organization ID (optional)
+- `HUGGINGFACE_API_KEY`: Your Hugging Face API key (required)
+- **Note**: Hugging Face API key is FREE and easy to get!
 
 ### Customization Options
 
@@ -93,8 +95,9 @@ You can modify the following parameters in `app.py`:
 
 - **Chunk Size**: `chunk_size=1000` (adjust for document complexity)
 - **Chunk Overlap**: `chunk_overlap=200` (for better context continuity)
-- **Retrieval Count**: `search_kwargs={"k": 4}` (number of relevant chunks)
+- **Search Results**: `k=5` (number of relevant chunks to retrieve)
 - **Model Temperature**: `temperature=0.7` (creativity vs accuracy)
+- **Web Search**: Toggle in sidebar for enhanced responses
 
 ## 📁 Project Structure
 
@@ -150,10 +153,11 @@ This project is open source and available under the MIT License.
 
 ## 🙏 Acknowledgments
 
-- **OpenAI** for providing the GPT models and embeddings
+- **Microsoft** for providing the DialoGPT-large model
+- **Hugging Face** for the model hosting and API
 - **LangChain** for the powerful framework
 - **Streamlit** for the beautiful web interface
-- **ChromaDB** for vector storage capabilities
+- **DuckDuckGo** for web search capabilities
 
 ## 📞 Support
 
@@ -162,7 +166,7 @@ If you encounter any issues or have questions:
 1. Check the troubleshooting section above
 2. Review the error messages in the Streamlit interface
 3. Ensure all dependencies are properly installed
-4. Verify your OpenAI API key is valid and has sufficient credits
+4. Verify your Hugging Face API key is valid and properly configured
 
 ---
 
