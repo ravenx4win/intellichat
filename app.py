@@ -355,7 +355,7 @@ def extract_text_from_pdf(pdf_file) -> str:
         try:
             pdf_file.seek(0)  # Reset file pointer
             pdf_reader = PyPDF2.PdfReader(pdf_file)
-    for page in pdf_reader.pages:
+            for page in pdf_reader.pages:
                 text += page.extract_text() + "\n"
         except Exception as e2:
             st.error(f"Both PDF extraction methods failed: {e2}")
