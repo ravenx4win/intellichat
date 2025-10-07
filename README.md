@@ -1,17 +1,19 @@
 # 🤖 Intellichat - Document Q&A Assistant
 
-Intellichat is an intelligent document Q&A assistant that allows you to upload PDF documents and ask questions about them using natural language. Powered by Microsoft DialoGPT-large and intelligent text matching, it provides accurate, context-aware answers based on your documents with optional web search integration.
+Intellichat is an intelligent document Q&A assistant that allows you to upload PDF documents and ask questions about them using natural language. Powered by Microsoft DialoGPT-large, SQLite database, and intelligent text matching, it provides accurate, context-aware answers based on your documents with optional web search integration and persistent storage.
 
 ## ✨ Features
 
 - 📄 **PDF Document Processing**: Upload and process PDF documents with advanced text extraction
 - 🧠 **AI-Powered Q&A**: Ask questions in natural language and get intelligent answers using Microsoft DialoGPT-large
+- 💾 **Persistent Storage**: SQLite database stores documents and chat history permanently
 - 💭 **Conversational Memory**: Maintains context across multiple questions in a conversation
-- 🔍 **Intelligent Text Search**: Uses smart keyword matching for accurate document retrieval
+- 🔍 **Intelligent Text Search**: Uses smart keyword matching with SQLite indexing for accurate document retrieval
 - 🌐 **Web Search Integration**: Optional web search for enhanced responses
 - 🎨 **Beautiful UI**: Modern, responsive interface built with Streamlit
 - ⚡ **Real-time Processing**: Fast document processing and instant responses
-- 🛡️ **Reliable Operation**: No API failures or rate limits
+- 🛡️ **Reliable Operation**: No API failures, rate limits, or database crashes
+- 🔄 **Data Persistence**: Documents and conversations survive app restarts
 
 ## 🚀 Quick Start
 
@@ -38,19 +40,24 @@ Intellichat is an intelligent document Q&A assistant that allows you to upload P
    pip install -r requirements.txt
    ```
 
-4. **Set up environment variables**
+4. **Initialize SQLite database**
+   ```bash
+   python init_db.py
+   ```
+
+5. **Set up environment variables**
    - Get free API key from: https://huggingface.co/settings/tokens
    - Create `.env` file with:
      ```
      HUGGINGFACE_API_KEY=your_huggingface_api_key_here
      ```
 
-5. **Run the application**
+6. **Run the application**
    ```bash
    streamlit run app.py --server.port 8502
    ```
 
-6. **Open your browser**
+7. **Open your browser**
    - Navigate to: http://localhost:8502
    - Start chatting with your documents!
 
@@ -82,6 +89,24 @@ Intellichat is an intelligent document Q&A assistant that allows you to upload P
 3. **Query Processing** → SQLite search + AI model generation
 4. **Web Enhancement** → Optional web search for additional context
 5. **Response Delivery** → Contextual answers with persistent memory
+
+## 🗄️ Database Information
+
+### SQLite Database Features
+
+- **Persistent Storage**: Documents and chat history are saved permanently
+- **No External Dependencies**: SQLite is built into Python
+- **Fast Search**: Optimized indexes for keyword matching
+- **Reliable**: No database crashes or connection issues
+- **Streamlit Cloud Ready**: File-based storage works perfectly in cloud deployment
+- **Easy Backup**: Single database file (`intellichat.db`) contains all data
+
+### Database Management
+
+- **Initialize**: `python init_db.py` (first time setup)
+- **Check Status**: `python init_db.py check` (verify database health)
+- **Backup**: Copy `intellichat.db` file to backup location
+- **Reset**: Delete `intellichat.db` and run `python init_db.py`
 
 ## 🔧 Configuration
 
@@ -119,26 +144,42 @@ Intellichat/
 ### Common Issues
 
 1. **API Key Error**
-   - Ensure your OpenAI API key is correctly set in the `.env` file
-   - Check that you have sufficient API credits
+   - Ensure your Hugging Face API key is correctly set in the `.env` file
+   - Get free API key from: https://huggingface.co/settings/tokens
 
-2. **PDF Processing Issues**
+2. **Database Issues**
+   - Run `python init_db.py check` to verify database health
+   - If database is corrupted, delete `intellichat.db` and run `python init_db.py`
+   - Ensure you have write permissions in the project directory
+
+3. **PDF Processing Issues**
    - Try with a different PDF file
    - Ensure the PDF contains extractable text (not just images)
+   - Check if the PDF is password-protected
 
-3. **Memory Issues**
+4. **Memory Issues**
    - Large documents may require more RAM
    - Consider reducing chunk size for very large documents
+   - SQLite handles large documents efficiently
 
-4. **Import Errors**
+5. **Import Errors**
    - Ensure all dependencies are installed: `pip install -r requirements.txt`
-   - Check Python version compatibility
+   - Check Python version compatibility (3.8+ required)
+   - SQLite is built into Python, no additional installation needed
+
+### Database Troubleshooting
+
+- **Database not found**: Run `python init_db.py` to initialize
+- **Permission errors**: Check file permissions in project directory
+- **Corrupted database**: Delete `intellichat.db` and reinitialize
+- **Slow queries**: Database is automatically optimized with indexes
 
 ### Performance Tips
 
+- SQLite provides fast, reliable storage for documents
 - Use smaller chunk sizes for faster processing
-- Clear chat history periodically to free memory
-- Process documents in smaller sections if needed
+- Database automatically handles large documents efficiently
+- Chat history is persisted, no need to worry about memory
 
 ## 🤝 Contributing
 
