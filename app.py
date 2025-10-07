@@ -24,6 +24,20 @@ import torch
 load_dotenv()
 HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY")
 
+# Check if API key is available
+if not HUGGINGFACE_API_KEY:
+    st.error("⚠️ Hugging Face API Key not found!")
+    st.info("""
+    **To fix this:**
+    1. Go to your Streamlit Cloud app settings
+    2. Add environment variable: `HUGGINGFACE_API_KEY`
+    3. Set the value to your Hugging Face API key
+    4. Save and wait for redeployment
+    
+    **Get your free API key at:** https://huggingface.co/settings/tokens
+    """)
+    st.stop()
+
 # SQLite Database Functions
 def init_database():
     """Initialize SQLite database with required tables."""
@@ -608,13 +622,18 @@ st.markdown('<h1 class="main-header">📄 Intellichat – Document Q&A Assistant
 with st.sidebar:
     st.header("⚙️ Configuration")
     
-    # API Key input
-    api_key = st.text_input(
-        "Hugging Face API Key",
-        type="password",
-        value=os.getenv("HUGGINGFACE_API_KEY", ""),
-        help="Enter your Hugging Face API key. Get it free from https://huggingface.co/settings/tokens"
-    )
+    # API Key status
+    if HUGGINGFACE_API_KEY:
+        st.success("✅ Hugging Face API Key: Configured")
+        api_key = HUGGINGFACE_API_KEY
+    else:
+        st.error("❌ Hugging Face API Key: Not configured")
+        st.info("Please set the environment variable in Streamlit Cloud settings")
+        api_key = st.text_input(
+            "Hugging Face API Key (Manual Entry)",
+            type="password",
+            help="Enter your Hugging Face API key manually"
+        )
     
     if not api_key:
         st.error("⚠️ Please enter your Hugging Face API key to continue.")
