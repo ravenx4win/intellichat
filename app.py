@@ -141,19 +141,39 @@ def save_chunks(document_id, chunks):
     conn.close()
 
 def search_chunks(document_id, query, limit=5):
-    """Search chunks for a document using keyword matching."""
+    """Enhanced search chunks for a document using improved keyword matching."""
     conn = get_database_connection()
     cursor = conn.cursor()
     
-    # Simple keyword search
+    # Enhanced keyword search with better matching
     query_words = query.lower().split()
     search_conditions = []
     params = []
     
+    # Add exact phrase search
+    if len(query.strip()) > 0:
+        search_conditions.append('chunk_text LIKE ?')
+        params.append(f'%{query.lower()}%')
+    
+    # Add individual word searches
     for word in query_words:
-        if len(word) > 2:  # Only search for words longer than 2 characters
+        if len(word) > 1:  # Include shorter words for better matching
             search_conditions.append('(chunk_text LIKE ? OR keywords LIKE ?)')
             params.extend([f'%{word}%', f'%{word}%'])
+    
+    # Add synonym/related word searches
+    synonyms = {
+        'summary': ['overview', 'abstract', 'introduction', 'main points'],
+        'about': ['content', 'subject', 'topic', 'discusses'],
+        'what': ['content', 'information', 'details'],
+        'pdf': ['document', 'file', 'text']
+    }
+    
+    for word in query_words:
+        if word in synonyms:
+            for synonym in synonyms[word]:
+                search_conditions.append('(chunk_text LIKE ? OR keywords LIKE ?)')
+                params.extend([f'%{synonym}%', f'%{synonym}%'])
     
     if not search_conditions:
         # If no meaningful words, return all chunks
@@ -164,8 +184,8 @@ def search_chunks(document_id, query, limit=5):
             LIMIT ?
         ''', (document_id, limit))
     else:
-        # Build the query
-        where_clause = ' AND '.join(search_conditions)
+        # Build the query with OR conditions for better matching
+        where_clause = ' OR '.join(search_conditions)
         params = [document_id] + params + [limit]
         
         cursor.execute(f'''
@@ -335,7 +355,7 @@ def extract_text_from_pdf(pdf_file) -> str:
         try:
             pdf_file.seek(0)  # Reset file pointer
             pdf_reader = PyPDF2.PdfReader(pdf_file)
-            for page in pdf_reader.pages:
+    for page in pdf_reader.pages:
                 text += page.extract_text() + "\n"
         except Exception as e2:
             st.error(f"Both PDF extraction methods failed: {e2}")
@@ -561,26 +581,65 @@ def search_document_sqlite(document_id, question, k=5):
         return []
 
 def create_sqlite_qa_fallback(document_id):
-    """Intelligent text matching Q&A using SQLite database."""
+    """Enhanced intelligent text matching Q&A using SQLite database."""
     def simple_qa(question):
         try:
-            # Get relevant documents using SQLite search
-            relevant_chunks = search_document_sqlite(document_id, question, k=5)
+            # Get relevant documents using enhanced SQLite search
+            relevant_chunks = search_document_sqlite(document_id, question, k=8)
             
             if relevant_chunks:
                 # Combine relevant content
                 content = "\n\n".join(relevant_chunks)
                 
-                # Create a more intelligent response
+                # Create a more intelligent and helpful response
                 response = f"""📄 **Document Analysis:**
 
-{content[:1000]}
+{content[:1500]}
 
 **Question:** {question}
 
-**Answer:** Based on the document content above, here's what I found relevant to your question. The information is extracted directly from your uploaded PDF document."""
+**Answer:** Based on the document content above, here's what I found relevant to your question:
+
+{content[:800]}
+
+This information is extracted directly from your uploaded PDF document. The content appears to be related to your question and should provide the insights you're looking for."""
             else:
-                response = f"""❓ **No specific information found**
+                # Try a broader search for general questions
+                if any(word in question.lower() for word in ['summary', 'about', 'what', 'main', 'overview', 'content']):
+                    # Get all chunks for general questions
+                    conn = get_database_connection()
+                    cursor = conn.cursor()
+                    cursor.execute('''
+                        SELECT chunk_text FROM chunks 
+                        WHERE document_id = ? 
+                        ORDER BY chunk_index 
+                        LIMIT 5
+                    ''', (document_id,))
+                    all_chunks = cursor.fetchall()
+                    conn.close()
+                    
+                    if all_chunks:
+                        content = "\n\n".join([chunk[0] for chunk in all_chunks])
+                        response = f"""📄 **Document Overview:**
+
+{content[:1200]}
+
+**Question:** {question}
+
+**Answer:** Here's an overview of the document content. This should help answer your question about the document's main topics and content."""
+                    else:
+                        response = f"""❓ **Document Content Not Found**
+
+I couldn't find any content in the document. This might be because:
+- The PDF contains only images (no extractable text)
+- The document is password-protected
+- The text extraction failed
+
+**Current document ID:** {document_id}
+
+**Try uploading a different PDF with extractable text.**"""
+                else:
+                    response = f"""❓ **No specific information found**
 
 I couldn't find specific information about '{question}' in the document. 
 
@@ -589,6 +648,7 @@ I couldn't find specific information about '{question}' in the document.
 - What are the main topics?
 - What are the key points?
 - Can you summarize this document?
+- What does this document discuss?
 
 **Current document ID:** {document_id}"""
             
@@ -748,11 +808,22 @@ with col2:
                     # Use SQLite-based document search for reliable responses
                     st.info("🔄 Using intelligent text matching with SQLite database...")
                     
-                    # Debug: Show document info
+                    # Debug: Show document info and search results
                     if st.session_state.current_document_id:
                         doc_info = get_document_info(st.session_state.current_document_id)
                         if doc_info:
                             st.info(f"📄 Document: {doc_info[0]} (ID: {st.session_state.current_document_id})")
+                        
+                        # Show search debug info
+                        try:
+                            debug_chunks = search_document_sqlite(st.session_state.current_document_id, question, k=3)
+                            if debug_chunks:
+                                st.info(f"🔍 Found {len(debug_chunks)} relevant chunks")
+                                st.info(f"📝 First chunk preview: {debug_chunks[0][:100]}...")
+                            else:
+                                st.warning("⚠️ No relevant chunks found - trying broader search...")
+                        except Exception as e:
+                            st.warning(f"Search debug error: {str(e)}")
                     
                     fallback_qa = create_sqlite_qa_fallback(st.session_state.current_document_id)
                     response = fallback_qa(processed_question)
