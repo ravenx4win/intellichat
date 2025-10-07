@@ -2,11 +2,6 @@
 
 **A completely offline, privacy-focused document Q&A system that runs entirely on your local machine without any external APIs, API keys, or internet dependencies.**
 
-[![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://python.org)
-[![Streamlit](https://img.shields.io/badge/Streamlit-1.28+-red.svg)](https://streamlit.io)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Local](https://img.shields.io/badge/100%25-Local-brightgreen.svg)](https://github.com/ravenx4win/intellichat-1)
-
 ## 🌟 Key Features
 
 - 🛡️ **100% Local & Private** - No external APIs, no data leaves your machine
@@ -28,7 +23,7 @@
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/ravenx4win/intellichat-1.git
+   git clone https://github.com/yourusername/intellichat-1.git
    cd intellichat-1
    ```
 
@@ -103,10 +98,9 @@ Your app can be accessed by other devices on your network:
 intellichat-1/
 ├── app_local.py              # Main local application
 ├── requirements_local.txt     # Minimal dependencies
-├── README.md                 # This documentation
-├── .gitignore               # Git ignore file
+├── README_LOCAL.md          # This documentation
 ├── intellichat.db           # SQLite database (auto-created)
-└── venv/                    # Virtual environment (not included in repo)
+└── venv/                    # Virtual environment
 ```
 
 ## 🔧 Configuration
