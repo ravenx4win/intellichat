@@ -1,6 +1,6 @@
 # 🤖 Intellichat - Document Q&A Assistant
 
-Intellichat is an intelligent document Q&A assistant that allows you to upload PDF documents and ask questions about them using natural language. Powered by OpenAI's GPT models and LangChain, it provides accurate, context-aware answers based on your documents.
+Intellichat is an intelligent document Q&A assistant that allows you to upload PDF documents and ask questions about them using natural language. Powered by Hugging Face models and LangChain, it provides accurate, context-aware answers based on your documents.
 
 ## ✨ Features
 
@@ -16,7 +16,7 @@ Intellichat is an intelligent document Q&A assistant that allows you to upload P
 ### Prerequisites
 
 - Python 3.8 or higher
-- OpenAI API key
+- Hugging Face API key (FREE)
 
 ### Installation
 
@@ -37,19 +37,19 @@ Intellichat is an intelligent document Q&A assistant that allows you to upload P
    ```
 
 4. **Set up environment variables**
-   - Copy `env_template.txt` to `.env`
-   - Add your OpenAI API key:
+   - Get free API key from: https://huggingface.co/settings/tokens
+   - Create `.env` file with:
      ```
-     OPENAI_API_KEY=your_openai_api_key_here
+     HUGGINGFACE_API_KEY=your_huggingface_api_key_here
      ```
 
 5. **Run the application**
    ```bash
-   streamlit run app.py
+   streamlit run app.py --server.port 8502
    ```
 
 6. **Open your browser**
-   - Navigate to `http://localhost:8501`
+   - Navigate to: http://localhost:8502
    - Start chatting with your documents!
 
 ## 📋 Usage

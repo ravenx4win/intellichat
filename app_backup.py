@@ -96,7 +96,7 @@ def extract_text_from_pdf(pdf_file) -> str:
         try:
             pdf_file.seek(0)  # Reset file pointer
             pdf_reader = PyPDF2.PdfReader(pdf_file)
-            for page in pdf_reader.pages:
+    for page in pdf_reader.pages:
                 text += page.extract_text() + "\n"
         except Exception as e2:
             st.error(f"Both PDF extraction methods failed: {e2}")
@@ -324,7 +324,7 @@ def simple_text_search(document_store, question, k=5):
                 score += chunk_lower.count(word)
         
         # If no specific matches, include all chunks for general questions
-        if score > 0 or any(word in ['what', 'summary', 'about', 'content', 'main', 'document', 'pdf'] for word in question_words):
+        if score > 0 or any(word in ['what', 'summary', 'about', 'content', 'main'] for word in question_words):
             scored_chunks.append((score, chunk))
     
     # If no matches found, return all chunks for general questions
@@ -519,14 +519,6 @@ with col2:
                     estimated_tokens = len(processed_question + context + web_info) // 4
                     # Use simple document search for reliable responses
                     st.info("🔄 Using intelligent text matching for reliable responses...")
-                    
-                    # Debug: Show document store info
-                    if st.session_state.document_store:
-                        chunks = st.session_state.document_store.get('chunks', [])
-                        st.info(f"📄 Document has {len(chunks)} chunks")
-                        if chunks:
-                            st.info(f"📝 First chunk preview: {chunks[0][:100]}...")
-                    
                     fallback_qa = create_simple_qa_fallback(st.session_state.document_store)
                     response = fallback_qa(processed_question)
                     answer = response["answer"]
@@ -536,13 +528,10 @@ with col2:
                     
                     # Display the response immediately
                     st.success("✅ Response generated!")
-                    st.markdown("---")
-                    st.markdown("### 🤖 AI Response:")
-                    st.markdown(answer)
-                    st.markdown("---")
+                    st.markdown(f"**Answer:** {answer}")
                     
-                    # Don't rerun immediately - let user see the response
-                    # st.rerun()
+                    # Rerun to show the response in chat history
+                    st.rerun()
                     
                 except Exception as e:
                     st.error(f"❌ Error getting response: {str(e)}")
