@@ -279,8 +279,12 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Initialize database
-init_database()
+# Initialize database (with error handling for Streamlit Cloud)
+try:
+    init_database()
+except Exception as e:
+    st.warning(f"Database initialization note: {str(e)}")
+    # Continue without database if there are issues
 
 # Initialize session state
 if "chat_history" not in st.session_state:
