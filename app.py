@@ -3,6 +3,9 @@ import tempfile
 import gc
 import requests
 import time
+import sqlite3
+import hashlib
+from datetime import datetime
 from dotenv import load_dotenv
 import streamlit as st
 from langchain_community.llms import HuggingFaceHub
@@ -20,6 +23,219 @@ import torch
 # Load environment variables
 load_dotenv()
 HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY")
+
+# SQLite Database Functions
+def init_database():
+    """Initialize SQLite database with required tables."""
+    conn = sqlite3.connect('intellichat.db')
+    cursor = conn.cursor()
+    
+    # Create documents table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS documents (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            filename TEXT NOT NULL,
+            content_hash TEXT UNIQUE,
+            content TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
+    # Create chunks table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS chunks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            document_id INTEGER,
+            chunk_text TEXT,
+            keywords TEXT,
+            chunk_index INTEGER,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE
+        )
+    ''')
+    
+    # Create chat_history table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS chat_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            document_id INTEGER,
+            question TEXT,
+            answer TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE
+        )
+    ''')
+    
+    # Create indexes for better performance
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_chunks_document_id ON chunks(document_id)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_chunks_keywords ON chunks(keywords)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_chat_document_id ON chat_history(document_id)')
+    
+    conn.commit()
+    conn.close()
+
+def get_database_connection():
+    """Get SQLite database connection."""
+    return sqlite3.connect('intellichat.db')
+
+def save_document(filename, content):
+    """Save document to database and return document ID."""
+    content_hash = hashlib.md5(content.encode()).hexdigest()
+    
+    conn = get_database_connection()
+    cursor = conn.cursor()
+    
+    # Check if document already exists
+    cursor.execute('SELECT id FROM documents WHERE content_hash = ?', (content_hash,))
+    existing = cursor.fetchone()
+    
+    if existing:
+        conn.close()
+        return existing[0]
+    
+    # Insert new document
+    cursor.execute('''
+        INSERT INTO documents (filename, content_hash, content)
+        VALUES (?, ?, ?)
+    ''', (filename, content_hash, content))
+    
+    document_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    
+    return document_id
+
+def save_chunks(document_id, chunks):
+    """Save document chunks to database."""
+    conn = get_database_connection()
+    cursor = conn.cursor()
+    
+    # Clear existing chunks for this document
+    cursor.execute('DELETE FROM chunks WHERE document_id = ?', (document_id,))
+    
+    # Insert new chunks
+    for i, chunk in enumerate(chunks):
+        # Extract keywords from chunk
+        keywords = ' '.join(set(chunk.lower().split()))
+        cursor.execute('''
+            INSERT INTO chunks (document_id, chunk_text, keywords, chunk_index)
+            VALUES (?, ?, ?, ?)
+        ''', (document_id, chunk, keywords, i))
+    
+    conn.commit()
+    conn.close()
+
+def search_chunks(document_id, query, limit=5):
+    """Search chunks for a document using keyword matching."""
+    conn = get_database_connection()
+    cursor = conn.cursor()
+    
+    # Simple keyword search
+    query_words = query.lower().split()
+    search_conditions = []
+    params = []
+    
+    for word in query_words:
+        if len(word) > 2:  # Only search for words longer than 2 characters
+            search_conditions.append('(chunk_text LIKE ? OR keywords LIKE ?)')
+            params.extend([f'%{word}%', f'%{word}%'])
+    
+    if not search_conditions:
+        # If no meaningful words, return all chunks
+        cursor.execute('''
+            SELECT chunk_text FROM chunks 
+            WHERE document_id = ? 
+            ORDER BY chunk_index 
+            LIMIT ?
+        ''', (document_id, limit))
+    else:
+        # Build the query
+        where_clause = ' AND '.join(search_conditions)
+        params = [document_id] + params + [limit]
+        
+        cursor.execute(f'''
+            SELECT chunk_text FROM chunks 
+            WHERE document_id = ? AND ({where_clause})
+            ORDER BY chunk_index 
+            LIMIT ?
+        ''', params)
+    
+    results = cursor.fetchall()
+    conn.close()
+    
+    return [result[0] for result in results]
+
+def save_chat_history(document_id, question, answer):
+    """Save chat history to database."""
+    conn = get_database_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        INSERT INTO chat_history (document_id, question, answer)
+        VALUES (?, ?, ?)
+    ''', (document_id, question, answer))
+    
+    conn.commit()
+    conn.close()
+
+def get_chat_history(document_id, limit=10):
+    """Get chat history for a document."""
+    conn = get_database_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT question, answer, created_at FROM chat_history 
+        WHERE document_id = ? 
+        ORDER BY created_at DESC 
+        LIMIT ?
+    ''', (document_id, limit))
+    
+    results = cursor.fetchall()
+    conn.close()
+    
+    return [(result[0], result[1]) for result in results]
+
+def get_document_info(document_id):
+    """Get document information."""
+    conn = get_database_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT filename, created_at FROM documents WHERE id = ?
+    ''', (document_id,))
+    
+    result = cursor.fetchone()
+    conn.close()
+    
+    return result
+
+def clear_document_data(document_id):
+    """Clear all data for a specific document."""
+    conn = get_database_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('DELETE FROM chat_history WHERE document_id = ?', (document_id,))
+    cursor.execute('DELETE FROM chunks WHERE document_id = ?', (document_id,))
+    cursor.execute('DELETE FROM documents WHERE id = ?', (document_id,))
+    
+    conn.commit()
+    conn.close()
+
+def get_all_documents():
+    """Get all documents from database."""
+    conn = get_database_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT id, filename, created_at FROM documents 
+        ORDER BY created_at DESC
+    ''')
+    
+    results = cursor.fetchall()
+    conn.close()
+    
+    return results
 
 # Set up Streamlit UI
 st.set_page_config(
@@ -63,13 +279,18 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# Initialize database
+init_database()
+
 # Initialize session state
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
-if "vectorstore" not in st.session_state:
-    st.session_state.vectorstore = None
+if "current_document_id" not in st.session_state:
+    st.session_state.current_document_id = None
 if "qa_chain" not in st.session_state:
     st.session_state.qa_chain = None
+if "use_fallback" not in st.session_state:
+    st.session_state.use_fallback = False
 
 def extract_text_from_pdf(pdf_file) -> str:
     """Extract text from PDF using multiple methods for better accuracy."""
@@ -104,10 +325,10 @@ def extract_text_from_pdf(pdf_file) -> str:
     
     return text.strip()
 
-def create_simple_document_store(text: str, api_key: str):
-    """Create a simple, reliable document store without ChromaDB issues."""
+def process_document_with_sqlite(filename: str, text: str, api_key: str):
+    """Process document and save to SQLite database."""
     if not text:
-        return None, None
+        return None
 
     # Split text into chunks
     text_splitter = RecursiveCharacterTextSplitter(
@@ -121,16 +342,21 @@ def create_simple_document_store(text: str, api_key: str):
 
     if not chunks:
         st.error("No text chunks could be created from the PDF.")
-        return None, None
+        return None
     
-    # Create a simple document store (no ChromaDB issues)
-    document_store = {
-        'chunks': chunks,
-        'full_text': text,
-        'created_at': time.time()
-    }
-    
-    return document_store, chunks
+    try:
+        # Save document to database
+        document_id = save_document(filename, text)
+        
+        # Save chunks to database
+        save_chunks(document_id, chunks)
+        
+        st.success(f"✅ Document '{filename}' processed and saved to database!")
+        return document_id
+        
+    except Exception as e:
+        st.error(f"❌ Error saving document to database: {str(e)}")
+        return None
 
 def create_qa_chain(vectorstore, api_key: str):
     """Create the conversational retrieval chain using Hugging Face."""
@@ -193,7 +419,7 @@ def create_qa_chain(vectorstore, api_key: str):
     except Exception as e:
         st.warning(f"AI model failed to load: {str(e)}")
         st.info("🔄 Using intelligent text matching instead...")
-        return create_simple_qa_fallback(vectorstore)
+        return None  # Fallback will be handled in main logic
 
 def cleanup_memory():
     """Clean up memory to prevent crashes."""
@@ -303,44 +529,25 @@ def is_repetitive_response(response):
     
     return False
 
-def simple_text_search(document_store, question, k=5):
-    """Simple and reliable text search without ChromaDB."""
-    if not document_store or 'chunks' not in document_store:
+def search_document_sqlite(document_id, question, k=5):
+    """Search document using SQLite database."""
+    if not document_id:
         return []
     
-    chunks = document_store['chunks']
-    question_lower = question.lower()
-    
-    # Simple keyword matching with scoring
-    scored_chunks = []
-    for i, chunk in enumerate(chunks):
-        chunk_lower = chunk.lower()
-        score = 0
-        
-        # Count keyword matches
-        question_words = question_lower.split()
-        for word in question_words:
-            if len(word) > 2:  # Include shorter words for better matching
-                score += chunk_lower.count(word)
-        
-        # If no specific matches, include all chunks for general questions
-        if score > 0 or any(word in ['what', 'summary', 'about', 'content', 'main', 'document', 'pdf'] for word in question_words):
-            scored_chunks.append((score, chunk))
-    
-    # If no matches found, return all chunks for general questions
-    if not scored_chunks:
-        scored_chunks = [(1, chunk) for chunk in chunks]
-    
-    # Sort by score and return top k
-    scored_chunks.sort(key=lambda x: x[0], reverse=True)
-    return [chunk for score, chunk in scored_chunks[:k]]
+    try:
+        # Use SQLite search function
+        chunks = search_chunks(document_id, question, k)
+        return chunks
+    except Exception as e:
+        st.warning(f"Search error: {str(e)}")
+        return []
 
-def create_simple_qa_fallback(document_store):
-    """Intelligent text matching Q&A without heavy AI models."""
+def create_sqlite_qa_fallback(document_id):
+    """Intelligent text matching Q&A using SQLite database."""
     def simple_qa(question):
         try:
-            # Get relevant documents using simple search
-            relevant_chunks = simple_text_search(document_store, question, k=5)
+            # Get relevant documents using SQLite search
+            relevant_chunks = search_document_sqlite(document_id, question, k=5)
             
             if relevant_chunks:
                 # Combine relevant content
@@ -365,7 +572,7 @@ I couldn't find specific information about '{question}' in the document.
 - What are the key points?
 - Can you summarize this document?
 
-**Current document contains:** {len(document_store.get('chunks', []))} text sections"""
+**Current document ID:** {document_id}"""
             
             return {"answer": response}
             
@@ -455,35 +662,35 @@ with col1:
             if text:
                 st.success(f"✅ Extracted {len(text)} characters from PDF")
                 
-                # Create document store
-                with st.spinner("🧠 Creating knowledge base..."):
-                    document_store, chunks = create_simple_document_store(text, api_key)
+                # Process document with SQLite
+                with st.spinner("🧠 Saving to database..."):
+                    document_id = process_document_with_sqlite(pdf_file.name, text, api_key)
                     
-                    if document_store:
-                        st.session_state.document_store = document_store
-                        st.success(f"✅ Created knowledge base with {len(chunks)} chunks")
+                    if document_id:
+                        st.session_state.current_document_id = document_id
+                        st.success(f"✅ Document saved to database with ID: {document_id}")
                         
                         # Clear chat history when new document is uploaded
                         st.session_state.chat_history = []
                         st.session_state.use_fallback = False  # Reset fallback preference
                         
-                        # Create simple QA system
+                        # Create SQLite QA system
                         with st.spinner("🔗 Setting up AI assistant..."):
-                            qa_chain = create_simple_qa_fallback(document_store)
+                            qa_chain = create_sqlite_qa_fallback(document_id)
                             if qa_chain:
                                 st.session_state.qa_chain = qa_chain
                                 st.success("✅ AI assistant ready!")
                             else:
                                 st.error("❌ Failed to create AI assistant")
                     else:
-                        st.error("❌ Failed to create knowledge base")
+                        st.error("❌ Failed to save document to database")
             else:
                 st.error("❌ Could not extract text from PDF")
 
 with col2:
     st.header("💬 Chat with Your Document")
     
-    if hasattr(st.session_state, 'document_store') and st.session_state.document_store is not None:
+    if hasattr(st.session_state, 'current_document_id') and st.session_state.current_document_id is not None:
         # Chat input
         question = st.text_input(
             "Ask a question about your document:",
@@ -497,11 +704,11 @@ with col2:
                     # Preprocess the question and get context
                     processed_question = preprocess_question(question)
                     
-                    # Get relevant context from the document
+                    # Get relevant context from the document using SQLite
                     context = ""
-                    if hasattr(st.session_state, 'document_store') and st.session_state.document_store:
+                    if hasattr(st.session_state, 'current_document_id') and st.session_state.current_document_id:
                         try:
-                            relevant_chunks = simple_text_search(st.session_state.document_store, question, k=3)
+                            relevant_chunks = search_document_sqlite(st.session_state.current_document_id, question, k=3)
                             context = "\n".join(relevant_chunks)
                         except:
                             context = ""
@@ -515,23 +722,21 @@ with col2:
                         except:
                             web_info = ""
                     
-                    # Check if input would be too long and use fallback if needed
-                    estimated_tokens = len(processed_question + context + web_info) // 4
-                    # Use simple document search for reliable responses
-                    st.info("🔄 Using intelligent text matching for reliable responses...")
+                    # Use SQLite-based document search for reliable responses
+                    st.info("🔄 Using intelligent text matching with SQLite database...")
                     
-                    # Debug: Show document store info
-                    if st.session_state.document_store:
-                        chunks = st.session_state.document_store.get('chunks', [])
-                        st.info(f"📄 Document has {len(chunks)} chunks")
-                        if chunks:
-                            st.info(f"📝 First chunk preview: {chunks[0][:100]}...")
+                    # Debug: Show document info
+                    if st.session_state.current_document_id:
+                        doc_info = get_document_info(st.session_state.current_document_id)
+                        if doc_info:
+                            st.info(f"📄 Document: {doc_info[0]} (ID: {st.session_state.current_document_id})")
                     
-                    fallback_qa = create_simple_qa_fallback(st.session_state.document_store)
+                    fallback_qa = create_sqlite_qa_fallback(st.session_state.current_document_id)
                     response = fallback_qa(processed_question)
                     answer = response["answer"]
                     
-                    # Store in chat history
+                    # Save to database and store in session
+                    save_chat_history(st.session_state.current_document_id, question, answer)
                     st.session_state.chat_history.append((question, answer))
                     
                     # Display the response immediately
@@ -568,9 +773,17 @@ with col2:
     
     # Additional cleanup button
     if st.button("🗑️ Clear All Data & Start Fresh", type="secondary"):
+        # Clear current document from database if exists
+        if hasattr(st.session_state, 'current_document_id') and st.session_state.current_document_id:
+            try:
+                clear_document_data(st.session_state.current_document_id)
+                st.info(f"🗑️ Cleared document data for ID: {st.session_state.current_document_id}")
+            except Exception as e:
+                st.warning(f"Warning: Could not clear database data: {str(e)}")
+        
         # Clear all session state
         st.session_state.chat_history = []
-        st.session_state.document_store = None
+        st.session_state.current_document_id = None
         st.session_state.qa_chain = None
         st.session_state.use_fallback = False
         

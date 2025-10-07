@@ -24,6 +24,7 @@ cd /Users/mac/Documents/Intellichat && source venv/bin/activate && streamlit run
 1. Get free API key: https://huggingface.co/settings/tokens
 2. Add to .env file: HUGGINGFACE_API_KEY=your_key_here
 3. Install dependencies: pip install -r requirements.txt
+4. Initialize database: python init_db.py
 
 ## 🌐 Access:
 - Open: http://localhost:8502
@@ -34,3 +35,4 @@ cd /Users/mac/Documents/Intellichat && source venv/bin/activate && streamlit run
 - Port busy? Use --server.port 8503
 - Missing deps? Run: pip install -r requirements.txt
 - API issues? Check .env file
+- Database issues? Run: python init_db.py check

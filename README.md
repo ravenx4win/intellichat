@@ -70,17 +70,18 @@ Intellichat is an intelligent document Q&A assistant that allows you to upload P
 - **Document Processing**: PyPDF2 and pdfplumber for text extraction
 - **Text Chunking**: RecursiveCharacterTextSplitter for optimal chunk sizes
 - **AI Model**: Microsoft DialoGPT-large for intelligent responses
-- **Text Search**: Smart keyword matching for document retrieval
+- **Database**: SQLite for persistent document storage and retrieval
+- **Text Search**: Smart keyword matching with SQLite indexing
 - **Web Integration**: DuckDuckGo API for enhanced responses
-- **Memory**: Simple document store for reliable operation
+- **Memory**: SQLite database for reliable operation
 
 ### Workflow
 
 1. **Document Upload** → PDF text extraction
-2. **Text Processing** → Chunking and document store creation
-3. **Query Processing** → Intelligent text search + AI model generation
+2. **Text Processing** → Chunking and SQLite database storage
+3. **Query Processing** → SQLite search + AI model generation
 4. **Web Enhancement** → Optional web search for additional context
-5. **Response Delivery** → Contextual answers with conversation memory
+5. **Response Delivery** → Contextual answers with persistent memory
 
 ## 🔧 Configuration
 
@@ -98,6 +99,7 @@ You can modify the following parameters in `app.py`:
 - **Search Results**: `k=5` (number of relevant chunks to retrieve)
 - **Model Temperature**: `temperature=0.7` (creativity vs accuracy)
 - **Web Search**: Toggle in sidebar for enhanced responses
+- **Database**: SQLite file-based storage (no external database required)
 
 ## 📁 Project Structure
 
@@ -107,9 +109,9 @@ Intellichat/
 ├── requirements.txt       # Python dependencies
 ├── env_template.txt       # Environment variables template
 ├── README.md             # This file
+├── intellichat.db        # SQLite database (created automatically)
 ├── docs/                 # Documentation folder
-├── venv/                 # Virtual environment
-└── chroma_db/            # Vector database storage (auto-created)
+└── venv/                 # Virtual environment
 ```
 
 ## 🐛 Troubleshooting
@@ -157,6 +159,7 @@ This project is open source and available under the MIT License.
 - **Hugging Face** for the model hosting and API
 - **LangChain** for the powerful framework
 - **Streamlit** for the beautiful web interface
+- **SQLite** for reliable database storage
 - **DuckDuckGo** for web search capabilities
 
 ## 📞 Support
