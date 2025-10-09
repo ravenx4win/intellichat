@@ -33,10 +33,25 @@ try:
 except ImportError:
     HUGGINGFACE_AVAILABLE = False
 
-# Load environment variables
+# Load environment variables (local) or Streamlit secrets (cloud)
 load_dotenv()
+
+# Try to get API keys from environment variables first (local development)
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY")
+
+# If not found in environment, try Streamlit secrets (cloud deployment)
+if not GOOGLE_API_KEY:
+    try:
+        GOOGLE_API_KEY = st.secrets["api_keys"]["GOOGLE_API_KEY"]
+    except:
+        GOOGLE_API_KEY = None
+
+if not HUGGINGFACE_API_KEY:
+    try:
+        HUGGINGFACE_API_KEY = st.secrets["api_keys"]["HUGGINGFACE_API_KEY"]
+    except:
+        HUGGINGFACE_API_KEY = None
 
 # Check for available AI models
 available_models = []
