@@ -20,11 +20,50 @@ import PyPDF2
 import pdfplumber
 import torch
 
-# Load environment variables (optional for local mode)
-load_dotenv()
+# Google Gemini AI Model Integration
+try:
+    from langchain_google_genai import ChatGoogleGenerativeAI
+    GEMINI_AVAILABLE = True
+except ImportError:
+    GEMINI_AVAILABLE = False
 
-# Local mode - no API keys required
-st.success("✅ **100% Local Mode** - No external APIs required!")
+try:
+    from langchain_community.llms import HuggingFaceHub
+    HUGGINGFACE_AVAILABLE = True
+except ImportError:
+    HUGGINGFACE_AVAILABLE = False
+
+# Load environment variables
+load_dotenv()
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY")
+
+# Check for available AI models
+available_models = []
+if GOOGLE_API_KEY:
+    available_models.append("Google Gemini (Free)")
+if HUGGINGFACE_API_KEY:
+    available_models.append("Hugging Face (Free)")
+
+if not any([GOOGLE_API_KEY, HUGGINGFACE_API_KEY]):
+    st.error("⚠️ No AI Models Available!")
+    st.info("""
+    **Setting up AI Models:**
+    
+    **Option 1: Google Gemini (Recommended - Free)**
+    - Get free API key: https://aistudio.google.com/app/apikey
+    - No payment required!
+    - Set environment variable: `GOOGLE_API_KEY`
+    - Excellent for document analysis and Q&A
+    
+    **Option 2: Hugging Face (Free API)**
+    - Get free API key: https://huggingface.co/settings/tokens
+    - Set environment variable: `HUGGINGFACE_API_KEY`
+    - Good for basic text generation
+    """)
+    st.stop()
+else:
+    st.success(f"✅ Available AI Models: {', '.join(available_models)}")
 
 # SQLite Database Functions
 def init_database():
@@ -143,7 +182,7 @@ def search_chunks(document_id, query, limit=5):
         search_conditions.append('chunk_text LIKE ?')
         params.append(f'%{query.lower()}%')
     
-    # Add individual word searches
+    # Add individual word searches with scoring
     for word in query_words:
         if len(word) > 1:  # Include shorter words for better matching
             search_conditions.append('(chunk_text LIKE ? OR keywords LIKE ?)')
@@ -154,7 +193,10 @@ def search_chunks(document_id, query, limit=5):
         'summary': ['overview', 'abstract', 'introduction', 'main points'],
         'about': ['content', 'subject', 'topic', 'discusses'],
         'what': ['content', 'information', 'details'],
-        'pdf': ['document', 'file', 'text']
+        'pdf': ['document', 'file', 'text'],
+        'how': ['method', 'process', 'procedure', 'steps'],
+        'why': ['reason', 'cause', 'purpose', 'because'],
+        'when': ['time', 'date', 'schedule', 'timeline']
     }
     
     for word in query_words:
@@ -568,29 +610,76 @@ def search_document_sqlite(document_id, question, k=5):
         st.warning(f"Search error: {str(e)}")
         return []
 
-def create_sqlite_qa_fallback(document_id):
-    """Enhanced intelligent text matching Q&A using SQLite database."""
-    def simple_qa(question):
+def create_gemini_ai_qa(document_id):
+    """Create AI-powered Q&A using Google Gemini (superior quality)."""
+    def gemini_ai_qa(question):
         try:
             # Get relevant documents using enhanced SQLite search
             relevant_chunks = search_document_sqlite(document_id, question, k=8)
             
             if relevant_chunks:
                 # Combine relevant content
-                content = "\n\n".join(relevant_chunks)
+                context = "\n\n".join(relevant_chunks)
                 
-                # Create a more intelligent and helpful response
-                response = f"""📄 **Document Analysis:**
+                # Create sophisticated prompt for AI
+                prompt = f"""You are an expert AI assistant analyzing a document. Please provide a comprehensive, accurate, and helpful response to the user's question.
 
-{content[:1500]}
+DOCUMENT CONTEXT:
+{context[:2000]}
 
-**Question:** {question}
+USER QUESTION: {question}
 
-**Answer:** Based on the document content above, here's what I found relevant to your question:
+INSTRUCTIONS:
+1. Analyze the document context carefully
+2. Provide a detailed, accurate response based on the document content
+3. If the information is not available in the document, clearly state this
+4. Structure your response clearly with proper formatting
+5. Be specific and cite relevant parts of the document
+6. If the question is about a specific topic, focus on that topic
+7. Provide actionable insights when possible
 
-{content[:800]}
+RESPONSE:"""
+                
+                # Use Google Gemini (Primary Choice - Superior Quality)
+                if GOOGLE_API_KEY:
+                    try:
+                        if GEMINI_AVAILABLE:
+                            llm = ChatGoogleGenerativeAI(
+                                model="gemini-pro",
+                                temperature=0.7,
+                                max_output_tokens=1000,
+                                google_api_key=GOOGLE_API_KEY
+                            )
+                            response = llm.invoke(prompt).content
+                            return {"answer": response}
+                        else:
+                            st.warning("Google Gemini library not installed. Install with: pip install langchain-google-genai")
+                    except Exception as e:
+                        st.warning(f"Google Gemini not available: {e}")
+                
+                # Fallback to Hugging Face (Free)
+                if HUGGINGFACE_API_KEY:
+                    try:
+                        llm = HuggingFaceHub(
+                            repo_id="microsoft/DialoGPT-medium",
+                            huggingfacehub_api_token=HUGGINGFACE_API_KEY,
+                            model_kwargs={"temperature": 0.7, "max_length": 500}
+                        )
+                        response = llm.invoke(prompt)
+                        return {"answer": response}
+                    except Exception as e:
+                        st.warning(f"Hugging Face API not available: {e}")
+                
+                # Fallback to intelligent text matching
+                response = f"""**AI Analysis:**
 
-This information is extracted directly from your uploaded PDF document. The content appears to be related to your question and should provide the insights you're looking for."""
+Based on the document content, here's what I found:
+
+{context[:1000]}
+
+**Answer:** This information is extracted from your document and should help answer your question about "{question}". The content appears to be relevant to your query."""
+                
+                return {"answer": response}
             else:
                 # Try a broader search for general questions
                 if any(word in question.lower() for word in ['summary', 'about', 'what', 'main', 'overview', 'content']):
@@ -608,26 +697,43 @@ This information is extracted directly from your uploaded PDF document. The cont
                     
                     if all_chunks:
                         content = "\n\n".join([chunk[0] for chunk in all_chunks])
-                        response = f"""📄 **Document Overview:**
+                        
+                        # Use AI for better overview responses
+                        if GOOGLE_API_KEY:
+                            if GEMINI_AVAILABLE:
+                                llm = ChatGoogleGenerativeAI(model="gemini-pro", temperature=0.7, google_api_key=GOOGLE_API_KEY)
+                                prompt = f"Provide a comprehensive overview of this document content: {content[:1500]}. User asked: {question}"
+                                response = llm.invoke(prompt).content
+                            else:
+                                st.warning("Google Gemini library not installed. Install with: pip install langchain-google-genai")
+                        elif HUGGINGFACE_API_KEY:
+                            if HUGGINGFACE_AVAILABLE:
+                                llm = HuggingFaceHub(
+                                    repo_id="microsoft/DialoGPT-medium",
+                                    huggingfacehub_api_token=HUGGINGFACE_API_KEY,
+                                    model_kwargs={"temperature": 0.7, "max_length": 500}
+                                )
+                                prompt = f"Provide a comprehensive overview of this document content: {content[:1500]}. User asked: {question}"
+                                response = llm.invoke(prompt)
+                            else:
+                                st.warning("Hugging Face library not installed. Install with: pip install langchain-community")
+                        else:
+                            response = f"""**Document Overview:** Here's what the document contains:
 
 {content[:1200]}
 
-**Question:** {question}
-
-**Answer:** Here's an overview of the document content. This should help answer your question about the document's main topics and content."""
+This provides an overview of the document content that should help answer your question about "{question}"."""
                     else:
-                        response = f"""❓ **Document Content Not Found**
+                        response = f"""**Document Content Not Found**
 
 I couldn't find any content in the document. This might be because:
 - The PDF contains only images (no extractable text)
 - The document is password-protected
 - The text extraction failed
 
-**Current document ID:** {document_id}
-
 **Try uploading a different PDF with extractable text.**"""
                 else:
-                    response = f"""❓ **No specific information found**
+                    response = f"""**No specific information found**
 
 I couldn't find specific information about '{question}' in the document. 
 
@@ -636,16 +742,14 @@ I couldn't find specific information about '{question}' in the document.
 - What are the main topics?
 - What are the key points?
 - Can you summarize this document?
-- What does this document discuss?
-
-**Current document ID:** {document_id}"""
+- What does this document discuss?"""
             
             return {"answer": response}
             
         except Exception as e:
             return {"answer": f"Error processing question: {str(e)}"}
     
-    return simple_qa
+    return advanced_qa
 
 def display_chat_history():
     """Display the chat history in a nice format."""
@@ -670,20 +774,32 @@ st.markdown('<h1 class="main-header">📄 Intellichat – Document Q&A Assistant
 with st.sidebar:
     st.header("⚙️ Configuration")
     
-    # Local mode indicator
-    st.success("✅ **100% Local Mode** - No API keys required!")
-    st.info("""
-    **Local Features:**
-    - 📄 PDF document processing
-    - 🧠 Local AI intelligence
-    - 💾 SQLite database storage
-    - 💬 Chat history
-    - 🔍 Smart keyword search
-    - 🎨 Beautiful UI
-    """)
+    # AI Model Status
+    st.markdown("### 🤖 AI Model Configuration")
     
-    # Local mode - no web search needed
-    st.info("🌐 **Local Processing Only** - No external web search")
+    if GOOGLE_API_KEY:
+        st.success("✅ **Google Gemini Pro** - Premium AI Model!")
+        st.info("🚀 Using Google Gemini for superior document analysis and Q&A!")
+        primary_model = "Google Gemini Pro"
+    elif HUGGINGFACE_API_KEY:
+        st.success("✅ **Hugging Face (Free)** - Open Source AI Model")
+        st.info("💡 Using Hugging Face as fallback - Good for basic text generation")
+        primary_model = "Hugging Face (Free)"
+    else:
+        st.error("❌ No AI models configured")
+        st.info("Please set up at least one AI service")
+        st.stop()
+    
+    st.markdown(f"**Active Model:** {primary_model}")
+    st.markdown("💰 **Cost:** $0.00 - Free Tier Available!")
+    st.markdown("🎯 **Quality:** Superior AI responses!")
+    
+    # Web search toggle
+    enable_web_search = st.checkbox(
+        "🌐 Enable Web Search",
+        value=True,
+        help="Search the web for additional information to enhance responses"
+    )
     
     st.markdown("---")
     st.markdown("### 📋 Instructions")
@@ -804,8 +920,9 @@ with col2:
                         except Exception as e:
                             st.warning(f"Search debug error: {str(e)}")
                     
-                    fallback_qa = create_sqlite_qa_fallback(st.session_state.current_document_id)
-                    response = fallback_qa(processed_question)
+                    # Use Gemini AI for superior responses
+                    gemini_ai_qa = create_gemini_ai_qa(st.session_state.current_document_id)
+                    response = gemini_ai_qa(processed_question)
                     answer = response["answer"]
                     
                     # Save to database and store in session

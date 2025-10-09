@@ -1,6 +1,6 @@
-# 🤖 Intellichat-1 - 100% Local Document Q&A Assistant
+# 🤖 Intellichat - Universal Document Q&A Assistant
 
-**A completely offline, privacy-focused document Q&A system that runs entirely on your local machine without any external APIs, API keys, or internet dependencies.**
+**A powerful document Q&A system that works both locally and in the cloud, with AI-powered responses using Hugging Face models and optional web search integration.**
 
 [![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://python.org)
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.28+-red.svg)](https://streamlit.io)
@@ -9,20 +9,20 @@
 
 ## 🌟 Key Features
 
-- 🛡️ **100% Local & Private** - No external APIs, no data leaves your machine
-- 🔑 **No API Keys Required** - Works completely offline after installation
-- 📄 **PDF Document Processing** - Upload and analyze PDF documents locally
-- 🧠 **Local AI Intelligence** - Smart text matching and response generation
+- 🌐 **Universal Deployment** - Works locally and in the cloud
+- 🤖 **AI-Powered Q&A** - Uses Hugging Face models for intelligent responses
+- 📄 **PDF Document Processing** - Upload and analyze PDF documents
+- 🔍 **Web Search Integration** - Optional web search for enhanced responses
 - 💾 **SQLite Database** - Persistent storage for documents and chat history
-- 🌐 **Network Accessible** - Share with other PCs on your local network
+- 🌐 **Cloud Ready** - Deploy on Streamlit Cloud, Heroku, etc.
 - 🎨 **Beautiful UI** - Modern Streamlit interface
-- ⚡ **Fast & Reliable** - No rate limits, no API failures, no internet required
+- ⚡ **Fast & Reliable** - Optimized for performance
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 - Python 3.8 or higher
-- No API keys or external accounts required!
+- Hugging Face API key (FREE) - Get it at: https://huggingface.co/settings/tokens
 
 ### Installation
 
@@ -40,12 +40,18 @@
 
 3. **Install dependencies**
    ```bash
-   pip install -r requirements_local.txt
+   pip install -r requirements.txt
    ```
 
-4. **Run the application**
+4. **Set up environment variables**
+   - Create `.env` file with:
+     ```
+     HUGGINGFACE_API_KEY=your_huggingface_api_key_here
+     ```
+
+5. **Run the application**
    ```bash
-   streamlit run app_local.py --server.port 8502 --server.address 0.0.0.0
+   streamlit run app.py --server.port 8502 --server.address 0.0.0.0
    ```
 
 5. **Access your app**
